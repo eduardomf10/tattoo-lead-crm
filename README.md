@@ -8,8 +8,6 @@ A REST API for managing clients, leads, notes, and appointments for a solo tatto
 
 This project is an **internal CRM (Customer Relationship Management) API** tailored to the workflow of an independent tattoo artist. It centralizes contact and lead data, tracks inquiry status, stores notes per lead, and manages a single appointment per lead—all through a simple, well-documented REST API.
 
-The codebase follows a layered structure (routers → services → models) with clear separation of concerns, making it a solid example for junior backend roles.
-
 ---
 
 ## Business Problem
