@@ -1,18 +1,18 @@
 # Tattoo Lead CRM API
 
-Internal REST API for a solo tattoo artist to manage clients, leads, notes, and appointments. Built with **Python**, **FastAPI**, **SQLAlchemy**, **Pydantic**, and **SQLite**. Inquiries become leads, move through a status pipeline, and can be annotated and scheduled—all via a single backend service.
+A REST API for a solo tattoo artist to manage clients, leads, notes, and appointments in one place. Built with **Python**, **FastAPI**, **SQLAlchemy**, **Pydantic**, and **SQLite**. Inquiries become leads, move through a status pipeline, and can be annotated and scheduled from a single backend.
 
 ---
 
 ## Project Overview
 
-The **Tattoo Lead CRM API** is an internal backend service that centralizes customer and lead data for an independent tattoo artist. It provides a single source of truth for who inquired, what they want, where each lead stands in the pipeline, notes from conversations, and scheduled sessions. The API is stateless, uses SQLite for portability, and exposes OpenAPI documentation for integration with a frontend or other clients.
+This API is an internal backend that centralizes client and lead data for an independent tattoo artist. It acts as a single source of truth for who inquired, what they want, where each lead stands in the pipeline, conversation notes, and scheduled sessions. The API is stateless, uses SQLite for portability, and exposes OpenAPI docs for integration with a frontend or other clients.
 
 ---
 
 ## Business Problem
 
-Solo tattoo artists typically receive inquiries across multiple channels—Instagram DMs, email, and referrals—with no unified place to track them. Context (tattoo idea, placement, size, budget) is scattered across conversations. It becomes hard to see which leads are new, which replied, which are scheduled, and which went cold. Many rely on spreadsheets or ad-hoc notes, leading to missed follow-ups and lost bookings. The core challenges are fragmented data, no visible pipeline, and manual tracking that does not scale.
+Solo tattoo artists often get inquiries from multiple channels—Instagram DMs, email, referrals—with no single place to track them. Context (tattoo idea, placement, size, budget) ends up scattered across conversations. It becomes hard to see which leads are new, which have replied, which are scheduled, and which have gone cold. Many rely on spreadsheets or ad-hoc notes, which leads to missed follow-ups and lost bookings. The core challenges are fragmented data, no visible pipeline, and manual tracking that does not scale.
 
 ---
 
@@ -26,7 +26,7 @@ This API addresses those challenges by:
 4. **Attaching notes to leads** — Conversation history and reminders per lead.
 5. **Managing one appointment per lead** — Date, time, and session notes.
 
-All of this is exposed through a REST API with request/response validation and automatic OpenAPI docs.
+Everything is exposed via a REST API with request/response validation and automatic OpenAPI docs.
 
 ---
 
@@ -53,7 +53,7 @@ The codebase is split into four layers:
 | **Models** | SQLAlchemy ORM: table definitions, columns, and relationships. Single source of truth for the database schema. |
 | **Schemas** | Pydantic models: API contracts for request bodies and responses. Separate from persistence so the API can evolve independently. |
 
-Dependencies flow in one direction: **routers → services → models**. Schemas are used at the router boundary (input/output) and are not tied to database columns.
+Dependencies flow in one direction: **routers → services → models**. This separation keeps the HTTP layer, business logic, and persistence distinct so each layer has a single responsibility and the codebase stays easier to maintain. Schemas are used at the router boundary (input/output) and are not tied to database columns.
 
 ---
 
@@ -86,7 +86,7 @@ Dependencies flow in one direction: **routers → services → models**. Schemas
 
 **Client** — A person who has inquired or been referred. Stored once; multiple leads can reference the same client. Fields: `full_name`, `instagram_handle`, `phone`, `email`, `preferred_contact_method`, `created_at`.
 
-**Lead** — A single tattoo inquiry tied to one client. Holds the request details: `original_message`, `tattoo_idea`, `body_location`, `size`, `style`, `color_type`, `design_type`, `summary`, `status`, `source`, `estimated_budget_range`, plus `created_at` and `updated_at`. Each lead has a lifecycle status and can have many notes and at most one appointment.
+**Lead** — A single tattoo inquiry tied to one client. Stores the request details: `original_message`, `tattoo_idea`, `body_location`, `size`, `style`, `color_type`, `design_type`, `summary`, `status`, `source`, `estimated_budget_range`, plus `created_at` and `updated_at`. Each lead has a lifecycle status and can have many notes and at most one appointment.
 
 **Note** — A note attached to a lead (e.g. conversation summary or reminder). Fields: `lead_id`, `content`, `created_at`. Many notes per lead.
 
@@ -205,7 +205,7 @@ The SQLite database file `tattoo_crm.db` is created in the project root on first
 
 ## Example Workflow
 
-This example shows how a single tattoo inquiry moves through the system from first contact to a scheduled appointment.
+This example walks through how a single tattoo inquiry moves from first contact to a scheduled appointment.
 
 **1. Create the client** (person who inquired)
 
@@ -231,7 +231,7 @@ curl -X POST http://127.0.0.1:8000/leads \
 curl "http://127.0.0.1:8000/leads?status=new"
 ```
 
-**4. Add a note** after talking to the client (e.g. lead id `1`)
+**4. Add a note** after talking to the client (e.g. lead ID `1`)
 
 ```bash
 curl -X POST http://127.0.0.1:8000/leads/1/notes \
