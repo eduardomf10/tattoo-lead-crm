@@ -1,66 +1,104 @@
 # Tattoo Lead CRM API
 
-A REST API for managing clients, leads, notes, and appointments for a solo tattoo artist. Built with **FastAPI**, **SQLAlchemy**, and **Pydantic** as a backend portfolio project demonstrating API design, data modeling, and clean architecture.
+Internal REST API for a solo tattoo artist to manage clients, leads, notes, and appointments. Built with **Python**, **FastAPI**, **SQLAlchemy**, **Pydantic**, and **SQLite**. Inquiries become leads, move through a status pipeline, and can be annotated and scheduled—all via a single backend service.
 
 ---
 
 ## Project Overview
 
-This project is an **internal CRM (Customer Relationship Management) API** tailored to the workflow of an independent tattoo artist. It centralizes contact and lead data, tracks inquiry status, stores notes per lead, and manages a single appointment per lead—all through a simple, well-documented REST API.
-
-The codebase follows a layered structure (routers → services → models) with clear separation of concerns, making it a solid example for junior backend roles.
+The **Tattoo Lead CRM API** is an internal backend service that centralizes customer and lead data for an independent tattoo artist. It provides a single source of truth for who inquired, what they want, where each lead stands in the pipeline, notes from conversations, and scheduled sessions. The API is stateless, uses SQLite for portability, and exposes OpenAPI documentation for integration with a frontend or other clients.
 
 ---
 
 ## Business Problem
 
-Solo tattoo artists often:
-
-- Receive inquiries via Instagram DMs, email, or referrals with no single place to track them.
-- Lose context when switching between conversations (idea, placement, size, budget).
-- Forget which leads replied, which are scheduled, and which went cold.
-- Rely on spreadsheets or scattered notes, leading to missed follow-ups and lost bookings.
-
-**Pain points:** fragmented data, no pipeline visibility, and manual tracking that doesn’t scale.
+Solo tattoo artists typically receive inquiries across multiple channels—Instagram DMs, email, and referrals—with no unified place to track them. Context (tattoo idea, placement, size, budget) is scattered across conversations. It becomes hard to see which leads are new, which replied, which are scheduled, and which went cold. Many rely on spreadsheets or ad-hoc notes, leading to missed follow-ups and lost bookings. The core challenges are fragmented data, no visible pipeline, and manual tracking that does not scale.
 
 ---
 
 ## Solution
 
-A **REST API** that:
+This API addresses those challenges by:
 
-1. **Stores clients** (name, Instagram, phone, email, preferred contact).
-2. **Turns inquiries into leads** linked to a client, with tattoo details (idea, location, size, style, source, budget).
-3. **Tracks lead status** through a defined pipeline: `new` → `awaiting_client_reply` → `in_conversation` → `scheduled` → `closed` or `lost`.
-4. **Attaches notes** to each lead for conversation history and reminders.
-5. **Manages one appointment per lead** (date, time, session notes).
+1. **Storing clients** — Contact details (name, Instagram, phone, email, preferred contact method).
+2. **Turning inquiries into leads** — Each inquiry is a lead linked to a client, with tattoo details (idea, body location, size, style, source, estimated budget).
+3. **Tracking lead status** — A defined pipeline: `new` → `awaiting_client_reply` → `in_conversation` → `scheduled` → `closed` or `lost`.
+4. **Attaching notes to leads** — Conversation history and reminders per lead.
+5. **Managing one appointment per lead** — Date, time, and session notes.
 
-The API is stateless, uses SQLite for simplicity and portability, and exposes OpenAPI docs for easy integration with a future frontend or mobile app.
+All of this is exposed through a REST API with request/response validation and automatic OpenAPI docs.
+
+---
+
+## What This Project Demonstrates
+
+- **REST API design with FastAPI** — Resource-oriented endpoints, appropriate HTTP methods, and status codes.
+- **Relational data modeling with SQLAlchemy** — Entities, foreign keys, and one-to-many / one-to-one relationships.
+- **CRUD operations** — Create, read, update (where applicable) across clients, leads, notes, and appointments.
+- **Service-layer architecture** — Business logic in services; routers handle only HTTP and delegation.
+- **API validation with Pydantic** — Request bodies and response shapes with type safety and clear validation errors.
+- **Workflow state management** — Lead status lifecycle and nested resources (notes and appointment under a lead).
+- **OpenAPI documentation** — Auto-generated Swagger UI and ReDoc from the FastAPI application.
+
+---
+
+## Architecture Overview
+
+The codebase is split into four layers:
+
+| Layer | Role |
+|-------|------|
+| **Routers** | HTTP layer: parse requests, validate input via Pydantic schemas, call services, return responses. No business logic. |
+| **Services** | Business logic and database access. Services receive a DB session and data; routers never touch the ORM directly. |
+| **Models** | SQLAlchemy ORM: table definitions, columns, and relationships. Single source of truth for the database schema. |
+| **Schemas** | Pydantic models: API contracts for request bodies and responses. Separate from persistence so the API can evolve independently. |
+
+Dependencies flow in one direction: **routers → services → models**. Schemas are used at the router boundary (input/output) and are not tied to database columns.
 
 ---
 
 ## Features
 
 - **Client management** — Create, list, and retrieve clients by ID.
-- **Lead management** — Create leads linked to clients; list with optional status filter; get lead detail (including client); update lead status.
+- **Lead management** — Create leads linked to clients; list with optional status filter; get lead by ID (including nested client); update lead status.
 - **Notes** — Create and list notes per lead (nested under `/leads/{lead_id}/notes`).
 - **Appointments** — Create or update one appointment per lead; get appointment by lead (returns `null` if none).
-- **Automatic docs** — Swagger UI and ReDoc from OpenAPI schema.
+- **OpenAPI docs** — Swagger UI and ReDoc generated from the FastAPI app.
 - **Structured errors** — 404 and validation errors with clear messages.
-- **Database** — SQLite with SQLAlchemy ORM; tables created on startup.
+- **Database** — SQLite with SQLAlchemy ORM; tables created on application startup.
 
 ---
 
 ## Tech Stack
 
-| Layer        | Technology |
-|-------------|------------|
-| **Framework** | [FastAPI](https://fastapi.tiangolo.com/) |
-| **Server**    | [Uvicorn](https://www.uvicorn.org/) (ASGI) |
-| **ORM**       | [SQLAlchemy](https://www.sqlalchemy.org/) 2.x |
-| **Validation & serialization** | [Pydantic](https://docs.pydantic.dev/) 2.x |
-| **Database**  | SQLite (file-based, no extra setup) |
-| **Language**  | Python 3.10+ |
+| Layer | Technology |
+|-------|-------------|
+| Framework | [FastAPI](https://fastapi.tiangolo.com/) |
+| Server | [Uvicorn](https://www.uvicorn.org/) (ASGI) |
+| ORM | [SQLAlchemy](https://www.sqlalchemy.org/) 2.x |
+| Validation & serialization | [Pydantic](https://docs.pydantic.dev/) 2.x |
+| Database | SQLite (file-based) |
+| Language | Python 3.10+ |
+
+---
+
+## Database Entities
+
+**Client** — A person who has inquired or been referred. Stored once; multiple leads can reference the same client. Fields: `full_name`, `instagram_handle`, `phone`, `email`, `preferred_contact_method`, `created_at`.
+
+**Lead** — A single tattoo inquiry tied to one client. Holds the request details: `original_message`, `tattoo_idea`, `body_location`, `size`, `style`, `color_type`, `design_type`, `summary`, `status`, `source`, `estimated_budget_range`, plus `created_at` and `updated_at`. Each lead has a lifecycle status and can have many notes and at most one appointment.
+
+**Note** — A note attached to a lead (e.g. conversation summary or reminder). Fields: `lead_id`, `content`, `created_at`. Many notes per lead.
+
+**Appointment** — A scheduled session for a lead. One appointment per lead (`lead_id` is unique). Fields: `lead_id`, `scheduled_date`, `scheduled_time`, `session_notes`, `created_at`.
+
+**Relationships**
+
+- **Client** → **Lead**: one-to-many. A client can have multiple leads (e.g. multiple ideas or follow-up projects).
+- **Lead** → **Note**: one-to-many. A lead can have many notes.
+- **Lead** → **Appointment**: one-to-one. A lead has at most one appointment.
+
+Deleting a client cascades to its leads; deleting a lead cascades to its notes and appointment.
 
 ---
 
@@ -70,26 +108,26 @@ The API is stateless, uses SQLite for simplicity and portability, and exposes Op
 tattoo-lead-crm/
 ├── app/
 │   ├── main.py              # FastAPI app, lifespan, router registration
-│   ├── database.py          # Engine, session, get_db, init_db
-│   ├── models/              # SQLAlchemy ORM models
+│   ├── database.py          # Engine, session factory, get_db, init_db
+│   ├── models/              # SQLAlchemy ORM (database tables)
 │   │   ├── __init__.py
 │   │   ├── client.py
 │   │   ├── lead.py
 │   │   ├── note.py
 │   │   └── appointment.py
-│   ├── schemas/             # Pydantic request/response models
+│   ├── schemas/             # Pydantic (API request/response contracts)
 │   │   ├── __init__.py
 │   │   ├── client.py
 │   │   ├── lead.py
 │   │   ├── note.py
 │   │   └── appointment.py
-│   ├── services/            # Business logic (no HTTP here)
+│   ├── services/            # Business logic
 │   │   ├── __init__.py
 │   │   ├── client_service.py
 │   │   ├── lead_service.py
 │   │   ├── note_service.py
 │   │   └── appointment_service.py
-│   └── routers/             # API endpoints
+│   └── routers/             # HTTP endpoints
 │       ├── __init__.py
 │       ├── clients.py
 │       ├── leads.py
@@ -99,69 +137,46 @@ tattoo-lead-crm/
 └── README.md
 ```
 
-- **Routers** — Handle HTTP, validate input via Pydantic, call services, return responses.
-- **Services** — Contain business logic and database operations.
-- **Models** — Define tables and relationships; **schemas** define API contracts.
-
----
-
-## Database Entities
-
-| Entity       | Table         | Description |
-|-------------|---------------|-------------|
-| **Client**  | `clients`     | Contact info: `full_name`, `instagram_handle`, `phone`, `email`, `preferred_contact_method`, `created_at`. |
-| **Lead**    | `leads`       | One per inquiry; `client_id` (FK); fields: `original_message`, `tattoo_idea`, `body_location`, `size`, `style`, `color_type`, `design_type`, `summary`, `status`, `source`, `estimated_budget_range`; timestamps. |
-| **Note**    | `notes`       | `lead_id` (FK), `content`, `created_at`. Many notes per lead. |
-| **Appointment** | `appointments` | `lead_id` (FK, unique), `scheduled_date`, `scheduled_time`, `session_notes`, `created_at`. One appointment per lead. |
-
-**Relationships:**
-
-- **Client** → **Lead** (one-to-many).
-- **Lead** → **Note** (one-to-many).
-- **Lead** → **Appointment** (one-to-one).
-
-Cascade deletes: deleting a client removes its leads; deleting a lead removes its notes and appointment.
-
 ---
 
 ## API Endpoints
 
-### Root
+**Root**
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Path | Description |
+|--------|------|-------------|
 | GET | `/` | Health check and links to docs. |
 
-### Clients
+**Clients**
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Path | Description |
+|--------|------|-------------|
 | POST | `/clients` | Create a client. |
 | GET | `/clients` | List clients (optional `skip`, `limit`). |
 | GET | `/clients/{client_id}` | Get client by ID. |
 
-### Leads
+**Leads**
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Path | Description |
+|--------|------|-------------|
 | POST | `/leads` | Create a lead (body: `client_id`, tattoo fields, `status`, `source`, etc.). |
-| GET | `/leads` | List leads; optional query `?status=new` (or other status). |
+| GET | `/leads` | List leads; optional query `?status=<status>`. |
 | GET | `/leads/{lead_id}` | Get lead by ID (includes nested client). |
 | PATCH | `/leads/{lead_id}/status` | Update lead status. |
 
-**Lead status values:** `new`, `awaiting_client_reply`, `in_conversation`, `scheduled`, `closed`, `lost`.
+Lead status values: `new`, `awaiting_client_reply`, `in_conversation`, `scheduled`, `closed`, `lost`.
 
-### Notes (nested under leads)
+**Notes** (nested under leads)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Path | Description |
+|--------|------|-------------|
 | POST | `/leads/{lead_id}/notes` | Create a note for the lead. |
 | GET | `/leads/{lead_id}/notes` | List notes for the lead. |
 
-### Appointments (nested under leads)
+**Appointments** (nested under leads)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Path | Description |
+|--------|------|-------------|
 | POST | `/leads/{lead_id}/appointment` | Create or update the lead’s appointment (one per lead). |
 | GET | `/leads/{lead_id}/appointment` | Get the lead’s appointment (or `null`). |
 
@@ -171,116 +186,98 @@ Cascade deletes: deleting a client removes its leads; deleting a lead removes it
 
 **Prerequisites:** Python 3.10+
 
-1. **Clone and enter the project:**
+```bash
+cd tattoo-lead-crm
+python -m venv .venv
+.venv\Scripts\activate   # Windows
+# source .venv/bin/activate   # Linux/macOS
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
 
-   ```bash
-   cd tattoo-lead-crm
-   ```
+- API base: **http://127.0.0.1:8000**
+- Swagger UI: http://127.0.0.1:8000/docs
+- ReDoc: http://127.0.0.1:8000/redoc
 
-2. **Create and activate a virtual environment (recommended):**
-
-   ```bash
-   python -m venv .venv
-   .venv\Scripts\activate   # Windows
-   # source .venv/bin/activate   # Linux/macOS
-   ```
-
-3. **Install dependencies:**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Start the server:**
-
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-
-   API base URL: **http://127.0.0.1:8000**
-
-5. **Open the docs:**
-
-   - **Swagger UI:** http://127.0.0.1:8000/docs  
-   - **ReDoc:** http://127.0.0.1:8000/redoc  
-
-The SQLite database file `tattoo_crm.db` is created automatically in the project root on first request.
+The SQLite database file `tattoo_crm.db` is created in the project root on first request.
 
 ---
 
 ## Example Workflow
 
-1. **Create a client** (person who inquired):
+This example shows how a single tattoo inquiry moves through the system from first contact to a scheduled appointment.
 
-   ```bash
-   curl -X POST http://127.0.0.1:8000/clients \
-     -H "Content-Type: application/json" \
-     -d '{"full_name": "Maria Silva", "instagram_handle": "@maria.s", "phone": "+5511999999999", "preferred_contact_method": "instagram"}'
-   ```
+**1. Create the client** (person who inquired)
 
-   Use the returned `id` (e.g. `1`) as `client_id` in the next step.
+```bash
+curl -X POST http://127.0.0.1:8000/clients \
+  -H "Content-Type: application/json" \
+  -d '{"full_name": "Jane Smith", "instagram_handle": "@jane.smith", "phone": "+15551234567", "preferred_contact_method": "instagram"}'
+```
 
-2. **Create a lead** for the inquiry:
+Use the returned `id` (e.g. `1`) as `client_id` in the next step.
 
-   ```bash
-   curl -X POST http://127.0.0.1:8000/leads \
-     -H "Content-Type: application/json" \
-     -d '{"client_id": 1, "tattoo_idea": "Flor no braço", "body_location": "braço", "size": "médio", "status": "new", "source": "instagram_dm"}'
-   ```
+**2. Create a lead** for the inquiry
 
-3. **List new leads:**
+```bash
+curl -X POST http://127.0.0.1:8000/leads \
+  -H "Content-Type: application/json" \
+  -d '{"client_id": 1, "tattoo_idea": "Small rose on forearm", "body_location": "forearm", "size": "small", "status": "new", "source": "instagram_dm"}'
+```
 
-   ```bash
-   curl "http://127.0.0.1:8000/leads?status=new"
-   ```
+**3. List new leads**
 
-4. **Add a note** to the lead (e.g. lead id `1`):
+```bash
+curl "http://127.0.0.1:8000/leads?status=new"
+```
 
-   ```bash
-   curl -X POST http://127.0.0.1:8000/leads/1/notes \
-     -H "Content-Type: application/json" \
-     -d '{"content": "Cliente pediu orçamento até sexta."}'
-   ```
+**4. Add a note** after talking to the client (e.g. lead id `1`)
 
-5. **Update status** when the client replies:
+```bash
+curl -X POST http://127.0.0.1:8000/leads/1/notes \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Client asked for quote by Friday. Prefers black and grey."}'
+```
 
-   ```bash
-   curl -X PATCH http://127.0.0.1:8000/leads/1/status \
-     -H "Content-Type: application/json" \
-     -d '{"status": "in_conversation"}'
-   ```
+**5. Update status** when the client replies
 
-6. **Schedule an appointment** (e.g. 2025-04-15 at 14:00):
+```bash
+curl -X PATCH http://127.0.0.1:8000/leads/1/status \
+  -H "Content-Type: application/json" \
+  -d '{"status": "in_conversation"}'
+```
 
-   ```bash
-   curl -X POST http://127.0.0.1:8000/leads/1/appointment \
-     -H "Content-Type: application/json" \
-     -d '{"scheduled_date": "2025-04-15", "scheduled_time": "14:00:00", "session_notes": "Sessão 1 - flor braço"}'
-   ```
+**6. Schedule the appointment**
 
-7. **Get full lead detail** (with client and status):
+```bash
+curl -X POST http://127.0.0.1:8000/leads/1/appointment \
+  -H "Content-Type: application/json" \
+  -d '{"scheduled_date": "2025-04-15", "scheduled_time": "14:00:00", "session_notes": "Session 1 - forearm rose"}'
+```
 
-   ```bash
-   curl http://127.0.0.1:8000/leads/1
-   ```
+**7. Get full lead detail** (with client and status)
+
+```bash
+curl http://127.0.0.1:8000/leads/1
+```
 
 ---
 
 ## Future Improvements
 
-- **Authentication** — JWT or API keys to protect endpoints.
-- **Pagination** — Cursor or offset metadata for list endpoints.
+- **Authentication** — JWT or API keys to secure endpoints and support multi-tenant or multi-user use.
+- **Pagination** — Standardized pagination (e.g. offset/limit or cursor) with metadata on list endpoints.
 - **Filtering and search** — Filter leads by date range, source, or client name; full-text search on notes.
-- **PostgreSQL** — Switch from SQLite for production and use connection pooling.
-- **Migrations** — Alembic for versioned schema changes.
-- **Tests** — Unit tests for services; integration tests for routers (e.g. pytest + TestClient).
-- **Soft delete** — Mark leads/clients as deleted instead of hard delete.
-- **Audit fields** — `updated_at` on all entities; optional `created_by` if auth is added.
-- **Rate limiting** — Per-IP or per-user limits on public endpoints.
-- **Frontend** — Simple SPA or mobile app consuming this API.
+- **PostgreSQL** — Move to PostgreSQL for production with connection pooling and better concurrency.
+- **Migrations** — Alembic (or similar) for versioned schema changes and repeatable deployments.
+- **Tests** — Unit tests for services and integration tests for routers (e.g. pytest with FastAPI TestClient).
+- **Soft delete** — Mark clients and leads as deleted instead of hard delete for audit and recovery.
+- **Audit fields** — Consistent `updated_at` (and optionally `created_by` once auth exists) across entities.
+- **Rate limiting** — Per-IP or per-token limits on public or unauthenticated endpoints.
+- **Frontend** — Web or mobile client consuming this API for day-to-day use by the artist.
 
 ---
 
 ## License
 
-Internal use / portfolio. Feel free to use this project as reference for your own backend work.
+Internal use / portfolio. You may use this project as reference for your own work.
