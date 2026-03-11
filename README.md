@@ -6,7 +6,11 @@ Internal REST API for a solo tattoo artist to manage clients, leads, notes, and 
 
 ## Project Overview
 
+<<<<<<< HEAD
 The **Tattoo Lead CRM API** is an internal backend service that centralizes customer and lead data for an independent tattoo artist. It provides a single source of truth for who inquired, what they want, where each lead stands in the pipeline, notes from conversations, and scheduled sessions. The API is stateless, uses SQLite for portability, and exposes OpenAPI documentation for integration with a frontend or other clients.
+=======
+This project is an **internal CRM (Customer Relationship Management) API** tailored to the workflow of an independent tattoo artist. It centralizes contact and lead data, tracks inquiry status, stores notes per lead, and manages a single appointment per lead—all through a simple, well-documented REST API.
+>>>>>>> e7fe76e19aebbab4e40f11c1eb1d717b9118b99e
 
 ---
 
