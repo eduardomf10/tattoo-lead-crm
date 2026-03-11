@@ -4,25 +4,18 @@ from datetime import date, time, datetime
 from pydantic import BaseModel, ConfigDict
 
 
-class AppointmentBase(BaseModel):
-    scheduled_date: date
-    scheduled_time: time
+class AppointmentCreate(BaseModel):
+    slot_id: int
     session_notes: str | None = None
 
 
-class AppointmentCreate(AppointmentBase):
-    pass
-
-
-class AppointmentUpdate(BaseModel):
-    scheduled_date: date | None = None
-    scheduled_time: time | None = None
-    session_notes: str | None = None
-
-
-class AppointmentResponse(AppointmentBase):
+class AppointmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     lead_id: int
+    slot_id: int
+    scheduled_date: date
+    scheduled_time: time
+    session_notes: str | None = None
     created_at: datetime

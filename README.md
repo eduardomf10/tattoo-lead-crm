@@ -24,9 +24,23 @@ This API addresses those challenges by:
 2. **Turning inquiries into leads** — Each inquiry is a lead linked to a client, with tattoo details (idea, body location, size, style, source, estimated budget).
 3. **Tracking lead status** — A defined pipeline: `new` → `awaiting_client_reply` → `in_conversation` → `scheduled` → `closed` or `lost`.
 4. **Attaching notes to leads** — Conversation history and reminders per lead.
-5. **Managing one appointment per lead** — Date, time, and session notes.
+5. **Managing one appointment per lead** — Simple scheduling based on predefined availability slots, with date, time, and session notes.
 
 Everything is exposed via a REST API with request/response validation and automatic OpenAPI docs.
+
+---
+
+### Scheduling flow (simple availability-based booking)
+
+The API uses a straightforward scheduling model:
+
+1. The artist creates **availability slots** with a single `start_time` (`POST /slots`).
+2. Clients can only book from **available slots** (`GET /slots/available`).
+3. To schedule a session, the client creates an **appointment from a slot** (`POST /leads/{lead_id}/appointment`), passing the `slot_id`.
+4. The system creates an `Appointment` tied to that slot, copies the date and time from the slot, and marks the slot as booked.
+5. Each lead can have at most one appointment, and each slot can be booked at most once.
+
+This keeps the scheduling logic easy to reason about without implementing a full calendar system.
 
 ---
 
@@ -62,7 +76,7 @@ Dependencies flow in one direction: **routers → services → models**. This se
 - **Client management** — Create, list, and retrieve clients by ID.
 - **Lead management** — Create leads linked to clients; list with optional status filter; get lead by ID (including nested client); update lead status.
 - **Notes** — Create and list notes per lead (nested under `/leads/{lead_id}/notes`).
-- **Appointments** — Create or update one appointment per lead; get appointment by lead (returns `null` if none).
+- **Availability & appointments** — Artist creates availability slots; clients book from available slots to create one appointment per lead; get appointment by lead (returns `null` if none).
 - **OpenAPI docs** — Swagger UI and ReDoc generated from the FastAPI app.
 - **Structured errors** — 404 and validation errors with clear messages.
 - **Database** — SQLite with SQLAlchemy ORM; tables created on application startup.
@@ -90,13 +104,16 @@ Dependencies flow in one direction: **routers → services → models**. This se
 
 **Note** — A note attached to a lead (e.g. conversation summary or reminder). Fields: `lead_id`, `content`, `created_at`. Many notes per lead.
 
-**Appointment** — A scheduled session for a lead. One appointment per lead (`lead_id` is unique). Fields: `lead_id`, `scheduled_date`, `scheduled_time`, `session_notes`, `created_at`.
+**AvailabilitySlot** — A single available time slot for the artist. Fields: `start_time`, `is_booked`, `created_at`. Each slot can be used at most once for an appointment.
+
+**Appointment** — A scheduled session for a lead, created from an availability slot. One appointment per lead (`lead_id` is unique) and one appointment per slot (`slot_id` is unique). Fields: `lead_id`, `slot_id`, `scheduled_date`, `scheduled_time`, `session_notes`, `created_at`.
 
 **Relationships**
 
 - **Client** → **Lead**: one-to-many. A client can have multiple leads (e.g. multiple ideas or follow-up projects).
 - **Lead** → **Note**: one-to-many. A lead can have many notes.
 - **Lead** → **Appointment**: one-to-one. A lead has at most one appointment.
+- **AvailabilitySlot** → **Appointment**: one-to-one. A slot can be booked for at most one appointment.
 
 Deleting a client cascades to its leads; deleting a lead cascades to its notes and appointment.
 
@@ -114,25 +131,29 @@ tattoo-lead-crm/
 │   │   ├── client.py
 │   │   ├── lead.py
 │   │   ├── note.py
-│   │   └── appointment.py
+│   │   ├── appointment.py
+│   │   └── availability_slot.py
 │   ├── schemas/             # Pydantic (API request/response contracts)
 │   │   ├── __init__.py
 │   │   ├── client.py
 │   │   ├── lead.py
 │   │   ├── note.py
-│   │   └── appointment.py
+│   │   ├── appointment.py
+│   │   └── availability_slot.py
 │   ├── services/            # Business logic
 │   │   ├── __init__.py
 │   │   ├── client_service.py
 │   │   ├── lead_service.py
 │   │   ├── note_service.py
-│   │   └── appointment_service.py
+│   │   ├── appointment_service.py
+│   │   └── availability_slot_service.py
 │   └── routers/             # HTTP endpoints
 │       ├── __init__.py
 │       ├── clients.py
 │       ├── leads.py
 │       ├── notes.py
-│       └── appointments.py
+│       ├── appointments.py
+│       └── availability_slots.py
 ├── requirements.txt
 └── README.md
 ```
@@ -177,8 +198,15 @@ Lead status values: `new`, `awaiting_client_reply`, `in_conversation`, `schedule
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/leads/{lead_id}/appointment` | Create or update the lead’s appointment (one per lead). |
+| POST | `/leads/{lead_id}/appointment` | Create the lead’s appointment from an availability slot (one per lead). |
 | GET | `/leads/{lead_id}/appointment` | Get the lead’s appointment (or `null`). |
+
+**Availability slots**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/slots` | Create an availability slot for the artist. |
+| GET | `/slots/available` | List all availability slots that are not yet booked. |
 
 ---
 
@@ -205,7 +233,7 @@ The SQLite database file `tattoo_crm.db` is created in the project root on first
 
 ## Example Workflow
 
-This example walks through how a single tattoo inquiry moves from first contact to a scheduled appointment.
+This example walks through how a single tattoo inquiry moves from first contact to a scheduled appointment using availability slots.
 
 **1. Create the client** (person who inquired)
 
@@ -247,15 +275,31 @@ curl -X PATCH http://127.0.0.1:8000/leads/1/status \
   -d '{"status": "in_conversation"}'
 ```
 
-**6. Schedule the appointment**
+**6. Create an availability slot** (done by the artist/admin)
+
+```bash
+curl -X POST http://127.0.0.1:8000/slots \
+  -H "Content-Type: application/json" \
+  -d '{"start_time": "2025-04-15T14:00:00"}'
+```
+
+Use the returned `id` (e.g. `1`) as `slot_id` in the next step.
+
+**7. List available slots** (for the client to choose)
+
+```bash
+curl http://127.0.0.1:8000/slots/available
+```
+
+**8. Schedule the appointment from a slot**
 
 ```bash
 curl -X POST http://127.0.0.1:8000/leads/1/appointment \
   -H "Content-Type: application/json" \
-  -d '{"scheduled_date": "2025-04-15", "scheduled_time": "14:00:00", "session_notes": "Session 1 - forearm rose"}'
+  -d '{"slot_id": 1, "session_notes": "Session 1 - forearm rose"}'
 ```
 
-**7. Get full lead detail** (with client and status)
+**9. Get full lead detail** (with client and status)
 
 ```bash
 curl http://127.0.0.1:8000/leads/1

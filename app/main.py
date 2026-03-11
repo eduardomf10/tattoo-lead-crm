@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.database import init_db
-from app.routers import clients, leads, notes, appointments
+from app.routers import clients, leads, notes, appointments, availability_slots
 
 
 @asynccontextmanager
@@ -26,6 +26,7 @@ app.include_router(clients.router)
 app.include_router(leads.router)
 app.include_router(notes.router)
 app.include_router(appointments.router)
+app.include_router(availability_slots.router)
 
 
 @app.get("/")

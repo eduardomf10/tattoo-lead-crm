@@ -1,6 +1,6 @@
 """Appointment model."""
 
-from datetime import datetime, time
+from datetime import datetime, time, date
 from sqlalchemy import Column, Integer, String, Text, Date, Time, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -12,9 +12,11 @@ class Appointment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     lead_id = Column(Integer, ForeignKey("leads.id"), nullable=False, unique=True)
+    slot_id = Column(Integer, ForeignKey("availability_slots.id"), nullable=False, unique=True)
     scheduled_date = Column(Date, nullable=False)
     scheduled_time = Column(Time, nullable=False)
     session_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     lead = relationship("Lead", back_populates="appointment")
+    slot = relationship("AvailabilitySlot", back_populates="appointment")
