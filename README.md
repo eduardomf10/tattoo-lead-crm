@@ -2,6 +2,8 @@
 
 A REST API for a solo tattoo artist to manage clients, leads, notes, and appointments in one place. Built with **Python**, **FastAPI**, **SQLAlchemy**, **Pydantic**, and **SQLite**. Inquiries become leads, move through a status pipeline, and can be annotated and scheduled from a single backend.
 
+[![Demo Video](https://img.shields.io/badge/▶_Demo_Video-YouTube-red?style=for-the-badge&logo=youtube)](https://youtu.be/S7l67Tlu-Os)
+
 ---
 
 ## Project Overview
